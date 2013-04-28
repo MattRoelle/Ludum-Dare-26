@@ -6,6 +6,8 @@
 (setq bullets (list))
 (setq enemies (list))
 
+(setq fire-time 0)
+
 (defmacro restartable (&body body)
     `(restart-case
       (progn ,@body)
@@ -45,15 +47,26 @@
   (when (sdl:get-key-state :sdl-key-left)
      (setf (first player) (- (first player) 6)))
   (when (sdl:get-key-state :sdl-key-space)
-     (setq bullets (append 
-                     bullets
-                     (list (list (+ 12 (first player)) (second player) 8 16)))))
+     (when (>= (- (get-internal-real-time) fire-time) 333)
+       (setq bullets (append
+                       bullets
+                       (list (list (+ 12 (first player)) (- (second player) 16) 8 16))))
+       (setq fire-time (get-internal-real-time))))
     
-  (map 'list #'(lambda (i)
+  (mapc #'(lambda (i)
            (if (or (<= (second i) (- 16)) (>= (second i) 640))
              (setq bullets (remove i bullets))
              (setf (second i) (- (second i) 8))))
        bullets)
+  
+  (mapc #'(lambda (e)
+            (mapc #'(lambda (b)
+                      (cond
+                        ((rect-collide? (subseq e 0 4) (subseq b 0 4))
+                         (setq enemies (remove e enemies))
+                         (setq bullets (remove b bullets)))))
+                  bullets))
+        enemies)
   
   ;rendering
   (gl:clear :color-buffer-bit)
@@ -62,7 +75,19 @@
     (apply 'drawq player)
     (gl:color 0 1 0)
     (mapc #'(lambda (i)
-              (apply 'drawq (subseq i 0 4)))
+              (let ((x (first i))
+                    (y (second i))
+                    (w (third i))
+                    (h (fourth i)))
+                (gl:with-pushed-matrix
+                  (gl:translate x y 0)
+                  (gl:with-primitive :quads
+                    (gl:color 1 1 1)
+                    (gl:vertex 0 0)
+                    (gl:vertex w 0)
+                    (gl:color .2 .2 .2)
+                    (gl:vertex w h)
+                    (gl:vertex 0 h)))))
           bullets)
     (gl:color 1 0 0)
     (mapc #'(lambda (i)
