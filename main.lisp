@@ -1,75 +1,118 @@
 (require 'lispbuilder-sdl)
 (require 'cl-opengl)
 
-(setq player '(0 448 32 32))
-(setq lives 3)
-(setq bullets (list))
-(setq enemies (list))
-(setq ebullets (list))
+(defvar *player* '(0 448 16 16))
+(defvar *lives* 3)
+(defvar *bullets* (list))
+(defvar *enemies* (list))
+(defvar *ebullets* (list))
 
-(setq fire-time 0)
+(defvar *fire-time* 0)
 
+(setq *enemies* ())
+(setq *ebullets* ())
 
 ;enemy movement definitions
-(setq wave
-      #'(lambda (e)
-          (setf (first e) (+ (first e) (* 7 (cos (/ (get-internal-real-time) 500)))))
-          (setf (second e) (+ (second e) 1))))
+(defun wave (e)
+  (setf (first e) (+ (first e) (* 7 (cos (/ (get-internal-real-time) 500)))))
+  (setf (second e) (+ (second e) 1)))
 
-(setq sprint 
-      #'(lambda (e)
-          (setf (second e) (+ (second e) 5))))
+(defun sprint (e)
+  (setf (second e) (+ (second e) 5)))
 
-(setq right-strafe 
-      #'(lambda (e)
-          (cond
-            ((< (second e) 200)
-             (setf (second e) (+ (second e) 4))
-             (setf (first e) (+ (first e) .5)))
-            (t
-             (setf (first e) (+ (first e) 5))
-             (setf (second e) (+ (second e) .5))))))
+(defun right-strafe (e)
+  (cond
+    ((< (second e) 200)
+     (setf (second e) (+ (second e) 4))
+     (setf (first e) (+ (first e) .5)))
+    (t
+     (setf (first e) (+ (first e) 5))
+     (setf (second e) (+ (second e) .5)))))
 
-(setq left-strafe #'(lambda (e)
-                       (cond
-                         ((< (second e) 200)
-                          (setf (second e) (+ (second e) 4))
-                          (setf (first e) (+ (first e) .5)))
-                         (t
-                          (setf (first e) (- (first e) 5))
-                          (setf (second e) (+ (second e) .5))))))
+(defun left-strafe (e)
+  (cond
+    ((< (second e) 200)
+     (setf (second e) (+ (second e) 4))
+     (setf (first e) (+ (first e) .5)))
+    (t
+     (setf (first e) (- (first e) 5))
+     (setf (second e) (+ (second e) .5)))))
 ;enemy shooting definitions
-(setq semi-auto
-      #'(lambda (e) 
-          (when (>= (- (get-internal-real-time) (seventh e)) 1000)
-                      (setq ebullets (append
-                                      ebullets
-                                      (list (list (+ 12 (first e)) (+ (second e) (fourth e)) 8 16 regular 0))))
-                      (setf (seventh e) (get-internal-real-time)))))
-(setq branch
-      #'(lambda (e) 
-          (when (>= (- (get-internal-real-time) (seventh e)) 1000)
-            (mapc #'(lambda (angle)
-                      (setq ebullets (append
-                                       ebullets
-                                       (list (list (+ 12 (first e)) (+ (second e) (fourth e)) 8 16
-                                                      angled
-                                                      angle))))) 
-                  '(.87 1.17 1.57 1.97 2.27))
-                      (setf (seventh e) (get-internal-real-time)))))
+(defun semi-auto (e) 
+  (when (>= (- (get-internal-real-time) (seventh e)) 1000)
+    (setq *ebullets* (append
+                     *ebullets*
+                     (list (list (+ 8 (first e)) (+ (second e) (fourth e)) 4 8 regular 0))))
+    (setf (seventh e) (get-internal-real-time))))
+
+(defun branch (e) 
+  (when (>= (- (get-internal-real-time) (seventh e)) 1000)
+    (mapc #'(lambda (angle)
+              (setq *ebullets* (append
+                               *ebullets*
+                               (list (list (+ 8 (first e)) (+ (second e) (fourth e)) 4 8
+                                           angled
+                                           angle))))) 
+          '(.87 1.17 1.57 1.97 2.27))
+    (setf (seventh e) (get-internal-real-time))))
+
+(defun small-branch (e) 
+  (when (>= (- (get-internal-real-time) (seventh e)) 1000)
+    (mapc #'(lambda (angle)
+              (setq *ebullets* (append
+                               *ebullets*
+                               (list (list (+ 8 (first e)) (+ (second e) (fourth e)) 4 8
+                                           angled
+                                           angle))))) 
+          '(1.17 1.57 1.97))
+    (setf (seventh e) (get-internal-real-time))))
 
 ;bullet movement definitions
-(setq regular
-      #'(lambda (b)
-          (setf (second b) (+ (second b) 7))))
+(defun regular (b)
+  (setf (second b) (+ (second b) 7)))
 
-(setq angled
-      #'(lambda (b)
-          (let* ((angle (sixth b))
-                (dx (* 7 (cos angle)))
-                (dy (* 7 (sin angle))))
-            (setf (first b) (+ (first b) dx))
-            (setf (second b) (+ (second b) dy)))))
+(defun angle (b)
+  (let* ((angle (sixth b))
+         (dx (* 7 (cos angle)))
+         (dy (* 7 (sin angle))))
+    (setf (first b) (+ (first b) dx))
+    (setf (second b) (+ (second b) dy))))
+
+;enemy wave generation
+(defun sprint-3 ()
+ (setq *enemies* (append *enemies* (list (list (- 288 64) -32 32 32 'sprint 'semi-auto 0)))) 
+ (setq *enemies* (append *enemies* (list (list 288 -32 32 32 'sprint 'semi-auto 0)))) 
+ (setq *enemies* (append *enemies* (list (list (+ 288 64) -32 32 32 'sprint 'semi-auto 0)))))
+
+(defun sprint-5 ()
+ (setq *enemies* (append *enemies* (list (list (- 288 128) -32 32 32 'sprint 'semi-auto 0)))) 
+ (setq *enemies* (append *enemies* (list (list (- 288 64) -32 32 32 'sprint 'semi-auto 0)))) 
+ (setq *enemies* (append *enemies* (list (list 288 -32 32 32 'sprint 'semi-auto 0)))) 
+ (setq *enemies* (append *enemies* (list (list (+ 288 64) -32 32 32 'sprint 'semi-auto 0)))) 
+ (setq *enemies* (append *enemies* (list (list (+ 288 128) -32 32 32 'sprint 'semi-auto 0)))))
+
+(defun branch-2-small ()
+ (setq *enemies* (append *enemies* (list (list 32 -32 32 32 'right-strafe 'small-branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 448 -32 32 32 'left-strafe 'small-branch 0)))))
+
+(defun branch-2 ()
+ (setq *enemies* (append *enemies* (list (list 32 -32 32 32 'right-strafe 'branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 448 -32 32 32 'left-strafe 'branch 0)))))
+
+(defun branch-4-small ()
+ (setq *enemies* (append *enemies* (list (list 32 -128 32 32 'right-strafe 'small-branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 32 -32 32 32 'right-strafe 'small-branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 448 -128 32 32 'left-strafe 'small-branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 448 -32 32 32 'left-strafe 'small-branch 0)))))
+
+(defun branch-4 ()
+ (setq *enemies* (append *enemies* (list (list 32 -128 32 32 'right-strafe 'branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 32 -32 32 32 'right-strafe 'branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 448 -128 32 32 'left-strafe 'branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 448 -32 32 32 'left-strafe 'branch 0)))))
+
+
+(branch-4)
 
 (defmacro restartable (&body body)
     `(restart-case
@@ -109,45 +152,45 @@
     (cond
       
       ((and (find :sdl-key-right keystate) (find :sdl-key-up keystate))
-       (setf (first player) (+ (first player) 5.5))
-       (setf (second player) (- (second player) 5.5)))
+       (setf (first *player*) (+ (first *player*) 5.5))
+       (setf (second *player*) (- (second *player*) 5.5)))
       ((and (find :sdl-key-left keystate) (find :sdl-key-up keystate))
-       (setf (first player) (- (first player) 5.5))
-       (setf (second player) (- (second player) 5.5)))
+       (setf (first *player*) (- (first *player*) 5.5))
+       (setf (second *player*) (- (second *player*) 5.5)))
       ((and (find :sdl-key-right keystate) (find :sdl-key-down keystate))
-       (setf (first player) (+ (first player) 5.5))
-       (setf (second player) (+ (second player) 5.5)))
+       (setf (first *player*) (+ (first *player*) 5.5))
+       (setf (second *player*) (+ (second *player*) 5.5)))
       ((and (find :sdl-key-left keystate) (find :sdl-key-down keystate))
-       (setf (first player) (- (first player) 5.5))
-       (setf (second player) (+ (second player) 5.5)))     
+       (setf (first *player*) (- (first *player*) 5.5))
+       (setf (second *player*) (+ (second *player*) 5.5)))     
       
       ((find :sdl-key-right keystate)
-       (setf (first player) (+ (first player) 8)))
+       (setf (first *player*) (+ (first *player*) 8)))
       ((find :sdl-key-left keystate)
-       (setf (first player) (- (first player) 8))) 
+       (setf (first *player*) (- (first *player*) 8))) 
       ((find :sdl-key-up keystate)
-       (setf (second player) (- (second player) 8)))
+       (setf (second *player*) (- (second *player*) 8)))
       ((find :sdl-key-down keystate)
-       (setf (second player) (+ (second player) 8))))
+       (setf (second *player*) (+ (second *player*) 8))))
     
     (when (sdl:get-key-state :sdl-key-space)
-         (when (>= (- (get-internal-real-time) fire-time) 200)
-         (setq bullets (append
-                         bullets
-                         (list (list (+ 12 (first player)) (- (second player) 16) 8 16))))
-        (setq fire-time (get-internal-real-time)))))
+         (when (>= (- (get-internal-real-time) *fire-time*) 200)
+         (setq *bullets* (append
+                         *bullets*
+                         (list (list (+ 4 (first *player*)) (- (second *player*) 16) 8 16))))
+        (setq *fire-time* (get-internal-real-time)))))
     
    (mapc #'(lambda (i)
            (if (or (<= (second i) (- 16)) (>= (second i) 640))
-             (setq bullets (remove i bullets))
+             (setq *bullets* (remove i *bullets*))
              (setf (second i) (- (second i) 8))))
-       bullets) 
+       *bullets*) 
   
   (mapc #'(lambda (i)
            (if (or (<= (second i) (- 16)) (>= (second i) 640))
-             (setq ebullets (remove i ebullets))
+             (setq *ebullets* (remove i *ebullets*))
              (funcall (fifth i) i)))
-       ebullets) 
+       *ebullets*) 
    
   (mapc #'(lambda (e)
             (funcall (fifth e) e)
@@ -155,30 +198,28 @@
             (mapc #'(lambda (b)
                       (cond
                         ((rect-collide? (subseq e 0 4) (subseq b 0 4))
-                         (setq enemies (remove e enemies))
-                         (setq bullets (remove b bullets)))))
-                  bullets))
-        enemies)
+                         (setq *enemies* (remove e *enemies*))
+                         (setq *bullets* (remove b *bullets*)))))
+                  *bullets*))
+        *enemies*)
   
   ;rendering
   (gl:clear :color-buffer-bit)
   (gl:with-pushed-matrix
     (gl:color 0 0 0)
-    (apply 'drawq player)
+    (apply 'drawq *player*)
     (mapc #'(lambda (i)
               (apply 'drawq (subseq i 0 4)))
-          bullets)
+          *bullets*)
     (mapc #'(lambda (i)
               (apply 'drawq (subseq i 0 4)))
-          ebullets)
+          *ebullets*)
     (mapc #'(lambda (i)
               (apply 'drawq (subseq i 0 4)))
-          enemies))
+          *enemies*))
   (gl:flush)
   (sdl:update-display)
   (sleep (/ 60 10000)))
-
-(setq enemies (append enemies (list (list 300 100 32 32 wave branch 0))))
 
 (defun main ()
   (sdl:with-init ()
