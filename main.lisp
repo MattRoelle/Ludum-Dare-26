@@ -8,6 +8,12 @@
 
 (setq fire-time 0)
 
+
+;enemy logic definitions
+(setq wave #'(lambda (e)
+               (setf (first e) (+ (first e) (* 7 (cos (/ (get-internal-real-time) 500)))))
+               (setf (second e) (+ (second e) 1))))
+
 (defmacro restartable (&body body)
     `(restart-case
       (progn ,@body)
@@ -45,9 +51,14 @@
   (when (sdl:get-key-state :sdl-key-right)
      (setf (first player) (+ (first player) 6)))
   (when (sdl:get-key-state :sdl-key-left)
-     (setf (first player) (- (first player) 6)))
+     (setf (first player) (- (first player) 6))) 
+  (when (sdl:get-key-state :sdl-key-up)
+    (setf (second player) (- (second player) 6)))
+  (when (Sdl:get-key-state :sdl-key-down)
+    (setf (second player) (+ (second player) 6)))
+  
   (when (sdl:get-key-state :sdl-key-space)
-     (when (>= (- (get-internal-real-time) fire-time) 333)
+     (when (>= (- (get-internal-real-time) fire-time) 200)
        (setq bullets (append
                        bullets
                        (list (list (+ 12 (first player)) (- (second player) 16) 8 16))))
@@ -60,6 +71,7 @@
        bullets)
   
   (mapc #'(lambda (e)
+            (funcall (fifth e) e)
             (mapc #'(lambda (b)
                       (cond
                         ((rect-collide? (subseq e 0 4) (subseq b 0 4))
@@ -71,25 +83,11 @@
   ;rendering
   (gl:clear :color-buffer-bit)
   (gl:with-pushed-matrix
-    (gl:color 1 1 1)
+    (gl:color 0 0 0)
     (apply 'drawq player)
-    (gl:color 0 1 0)
     (mapc #'(lambda (i)
-              (let ((x (first i))
-                    (y (second i))
-                    (w (third i))
-                    (h (fourth i)))
-                (gl:with-pushed-matrix
-                  (gl:translate x y 0)
-                  (gl:with-primitive :quads
-                    (gl:color 1 1 1)
-                    (gl:vertex 0 0)
-                    (gl:vertex w 0)
-                    (gl:color .2 .2 .2)
-                    (gl:vertex w h)
-                    (gl:vertex 0 h)))))
+              (apply 'drawq (subseq i 0 4)))
           bullets)
-    (gl:color 1 0 0)
     (mapc #'(lambda (i)
               (apply 'drawq (subseq i 0 4)))
           enemies))
@@ -97,12 +95,13 @@
   (sdl:update-display)
   (sleep (/ 60 10000)))
 
-(setq enemies (append enemies (list '(100 100 32 32))))
+(setq enemies (append enemies (list (list 300 100 32 32 wave))))
 
 (defun main ()
   (sdl:with-init ()
     (sdl:window 640 480 :flags sdl:sdl-opengl)
     (initgl)
+    (gl:clear-color 1 1 1 1)
     (sdl:with-events ()
       (:quit-event () t)
       (:idle ()
