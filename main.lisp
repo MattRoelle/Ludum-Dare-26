@@ -63,9 +63,7 @@
     (gl:color 1 0 0)
     (mapc #'(lambda (i)
               (apply 'drawq (subseq i 0 4)))
-          enemies
-          )
-    )
+          enemies))
   (gl:flush)
   (sdl:update-display)
   (sleep (/ 60 10000)))
