@@ -1,16 +1,14 @@
 (require 'lispbuilder-sdl)
 (require 'cl-opengl)
 
-(defvar *player* '(0 448 16 16))
-(defvar *lives* 3)
-(defvar *bullets* (list))
-(defvar *enemies* (list))
-(defvar *ebullets* (list))
-
-(defvar *fire-time* 0)
-
-(setq *enemies* ())
-(setq *ebullets* ())
+(defun reset-game ()
+  (defparameter *player* '(0 448 16 16))
+  (defparameter *lives* 3)
+  (defparameter *bullets* (list))
+  (defparameter *enemies* (list))
+  (defparameter *ebullets* (list))
+  (defparameter *fire-time* 0)
+  (defparameter *score* 0))
 
 ;enemy movement definitions
 (defun wave (e)
@@ -79,6 +77,17 @@
     (setf (second b) (+ (second b) dy))))
 
 ;enemy wave generation
+
+(defun sprint-wave-small ()
+  (setq *enemies* (append *enemies* (list (list 298 -32 32 32 'wave 'small-branch 0))))
+  (setq *enemies* (append *enemies* (list (list 32 -32 32 32 'sprint 'semi-auto 0))))
+  (setq *enemies* (append *enemies* (list (list 582 -32 32 32 'sprint 'semi-auto 0)))))
+
+(defun wave-3 ()
+  (setq *enemies* (append *enemies* (list (list 96 -32 32 32 'wave 'branch 0))))
+  (setq *enemies* (append *enemies* (list (list 618 -32 32 32 'wave 'branch 0))))
+  (setq *enemies* (append *enemies* (list (list 222 -64 32 32 'wave 'branch 0)))))
+
 (defun sprint-3 ()
  (setq *enemies* (append *enemies* (list (list (- 288 64) -32 32 32 'sprint 'semi-auto 0)))) 
  (setq *enemies* (append *enemies* (list (list 288 -32 32 32 'sprint 'semi-auto 0)))) 
@@ -109,7 +118,10 @@
  (setq *enemies* (append *enemies* (list (list 32 -128 32 32 'right-strafe 'branch 0)))) 
  (setq *enemies* (append *enemies* (list (list 32 -32 32 32 'right-strafe 'branch 0)))) 
  (setq *enemies* (append *enemies* (list (list 448 -128 32 32 'left-strafe 'branch 0)))) 
- (setq *enemies* (append *enemies* (list (list 448 -32 32 32 'left-strafe 'branch 0)))))
+ (setq *enemies* (append *enemies* (list (list 448 -32 32 32 'left-strafe 'branch 0))))
+ (setq *enemies* (append *enemies* (list (list 288 -32 32 32 'sprint 'semi-auto 0))))
+ (setq *enemies* (append *enemies* (list (list 320 -128 32 32 'sprint 'semi-auto 0))))
+ (setq *enemies* (append *enemies* (list (list 256 -128 32 32 'sprint 'semi-auto 0)))))
 
 (defun difficult ()
  (setq *enemies* (append *enemies* (list (list 32 -32 32 32 'sprint 'branch 0)))) 
@@ -117,14 +129,13 @@
  (setq *enemies* (append *enemies* (list (list 96 -160 32 32 'sprint 'branch 0)))) 
  (setq *enemies* (append *enemies* (list (list 448 -32 32 32 'sprint 'branch 0))))
  (setq *enemies* (append *enemies* (list (list 416 -96 32 32 'sprint 'branch 0)))) 
- (setq *enemies* (append *enemies* (list (list 384 -160 32 32 'sprint 'branch 0)))) 
- )
+ (setq *enemies* (append *enemies* (list (list 384 -160 32 32 'sprint 'branch 0)))))
+
+(defparameter easy-waves '(sprint-3 sprint-wave-small branch-2-small))
+(defparameter medium-waves '(sprint-5 wave-3 branch-4-small branch-2)) 
+(defparameter hard-waves '(branch-4 difficult))
 
 (difficult)
-
-(defparameter easy-waves '(sprint-3   branch-2-small))
-(defparameter medium-waves '(sprint-5 branch-4-small branch-2)) 
-(defparameter hard-waves '(branch-4 difficult))
 
 (defmacro restartable (&body body)
     `(restart-case
@@ -210,14 +221,17 @@
             (mapc #'(lambda (b)
                       (when (rect-collide? (subseq e 0 4) (subseq b 0 4))
                         (setq *enemies* (remove e *enemies*))
-                        (setq *bullets* (remove b *bullets*))))
+                        (setq *bullets* (remove b *bullets*))
+                        (setq *score* (+ *score* 1))
+                        (princ *score*)))
                   *bullets*))
         *enemies*)
   
   (mapc #'(lambda (b)
             (if (rect-collide? (subseq b 0 4) *player*)
-              (sdl:push-quit-event)))
+              (reset-game)))
         *ebullets*)
+  
   ;generate enemies
   (mapc #'(lambda (e)
             (when
@@ -228,9 +242,10 @@
               (setq *enemies* (remove e *enemies*))))
         *enemies*)
   (unless *enemies*
-    (funcall (nth (random (length hard-waves)) hard-waves)))
-  
-  
+    (cond
+      ((<= *score* 15) (funcall (nth (random (length easy-waves)) easy-waves)))
+      ((<= *score* 30) (funcall (nth (random (length medium-waves)) medium-waves)))
+      (t (funcall (nth (random (length hard-waves)) hard-waves)))))
   ;rendering
   (gl:clear :color-buffer-bit)
   (gl:with-pushed-matrix
@@ -253,6 +268,8 @@
   (sdl:with-init ()
     (sdl:window 640 480 :flags sdl:sdl-opengl)
     (initgl)
+    (reset-game)
+    (difficult)
     (gl:clear-color 1 1 1 1)
     (sdl:with-events ()
       (:quit-event () t)
