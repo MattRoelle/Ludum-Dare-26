@@ -111,8 +111,20 @@
  (setq *enemies* (append *enemies* (list (list 448 -128 32 32 'left-strafe 'branch 0)))) 
  (setq *enemies* (append *enemies* (list (list 448 -32 32 32 'left-strafe 'branch 0)))))
 
+(defun difficult ()
+ (setq *enemies* (append *enemies* (list (list 32 -32 32 32 'sprint 'branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 64 -96 32 32 'sprint 'branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 96 -160 32 32 'sprint 'branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 448 -32 32 32 'sprint 'branch 0))))
+ (setq *enemies* (append *enemies* (list (list 416 -96 32 32 'sprint 'branch 0)))) 
+ (setq *enemies* (append *enemies* (list (list 384 -160 32 32 'sprint 'branch 0)))) 
+ )
 
-(branch-4)
+(difficult)
+
+(defparameter easy-waves '(sprint-3   branch-2-small))
+(defparameter medium-waves '(sprint-5 branch-4-small branch-2)) 
+(defparameter hard-waves '(branch-4 difficult))
 
 (defmacro restartable (&body body)
     `(restart-case
@@ -191,17 +203,33 @@
              (setq *ebullets* (remove i *ebullets*))
              (funcall (fifth i) i)))
        *ebullets*) 
-   
+  
   (mapc #'(lambda (e)
             (funcall (fifth e) e)
             (funcall (sixth e) e)
             (mapc #'(lambda (b)
-                      (cond
-                        ((rect-collide? (subseq e 0 4) (subseq b 0 4))
-                         (setq *enemies* (remove e *enemies*))
-                         (setq *bullets* (remove b *bullets*)))))
+                      (when (rect-collide? (subseq e 0 4) (subseq b 0 4))
+                        (setq *enemies* (remove e *enemies*))
+                        (setq *bullets* (remove b *bullets*))))
                   *bullets*))
         *enemies*)
+  
+  (mapc #'(lambda (b)
+            (if (rect-collide? (subseq b 0 4) *player*)
+              (sdl:push-quit-event)))
+        *ebullets*)
+  ;generate enemies
+  (mapc #'(lambda (e)
+            (when
+              (or
+                (>= (second e) 480)
+                (>= (first e) 768)
+                (<= (first e) -126)) 
+              (setq *enemies* (remove e *enemies*))))
+        *enemies*)
+  (unless *enemies*
+    (funcall (nth (random (length hard-waves)) hard-waves)))
+  
   
   ;rendering
   (gl:clear :color-buffer-bit)
