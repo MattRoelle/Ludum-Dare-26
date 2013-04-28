@@ -11,21 +11,24 @@
 
 
 ;enemy movement definitions
-(setq wave #'(lambda (e)
-               (setf (first e) (+ (first e) (* 7 (cos (/ (get-internal-real-time) 500)))))
-               (setf (second e) (+ (second e) 1))))
+(setq wave
+      #'(lambda (e)
+          (setf (first e) (+ (first e) (* 7 (cos (/ (get-internal-real-time) 500)))))
+          (setf (second e) (+ (second e) 1))))
 
-(setq sprint #'(lambda (e)
-                 (setf (second e) (+ (second e) 5))))
+(setq sprint 
+      #'(lambda (e)
+          (setf (second e) (+ (second e) 5))))
 
-(setq right-strafe #'(lambda (e)
-                       (cond
-                         ((< (second e) 200)
-                          (setf (second e) (+ (second e) 4))
-                          (setf (first e) (+ (first e) .5)))
-                         (t
-                          (setf (first e) (+ (first e) 5))
-                          (setf (second e) (+ (second e) .5))))))
+(setq right-strafe 
+      #'(lambda (e)
+          (cond
+            ((< (second e) 200)
+             (setf (second e) (+ (second e) 4))
+             (setf (first e) (+ (first e) .5)))
+            (t
+             (setf (first e) (+ (first e) 5))
+             (setf (second e) (+ (second e) .5))))))
 
 (setq left-strafe #'(lambda (e)
                        (cond
@@ -41,8 +44,32 @@
           (when (>= (- (get-internal-real-time) (seventh e)) 1000)
                       (setq ebullets (append
                                       ebullets
-                                      (list (list (+ 12 (first e)) (+ (second e) (fourth e)) 8 16))))
+                                      (list (list (+ 12 (first e)) (+ (second e) (fourth e)) 8 16 regular 0))))
                       (setf (seventh e) (get-internal-real-time)))))
+(setq branch
+      #'(lambda (e) 
+          (when (>= (- (get-internal-real-time) (seventh e)) 1000)
+            (mapc #'(lambda (angle)
+                      (setq ebullets (append
+                                       ebullets
+                                       (list (list (+ 12 (first e)) (+ (second e) (fourth e)) 8 16
+                                                      angled
+                                                      angle))))) 
+                  '(.87 1.17 1.57 1.97 2.27))
+                      (setf (seventh e) (get-internal-real-time)))))
+
+;bullet movement definitions
+(setq regular
+      #'(lambda (b)
+          (setf (second b) (+ (second b) 7))))
+
+(setq angled
+      #'(lambda (b)
+          (let* ((angle (sixth b))
+                (dx (* 7 (cos angle)))
+                (dy (* 7 (sin angle))))
+            (setf (first b) (+ (first b) dx))
+            (setf (second b) (+ (second b) dy)))))
 
 (defmacro restartable (&body body)
     `(restart-case
@@ -119,7 +146,7 @@
   (mapc #'(lambda (i)
            (if (or (<= (second i) (- 16)) (>= (second i) 640))
              (setq ebullets (remove i ebullets))
-             (setf (second i) (+ (second i) 8))))
+             (funcall (fifth i) i)))
        ebullets) 
    
   (mapc #'(lambda (e)
@@ -151,7 +178,7 @@
   (sdl:update-display)
   (sleep (/ 60 10000)))
 
-(setq enemies (append enemies (list (list 300 100 32 32 right-strafe semi-auto 0))))
+(setq enemies (append enemies (list (list 300 100 32 32 wave branch 0))))
 
 (defun main ()
   (sdl:with-init ()
