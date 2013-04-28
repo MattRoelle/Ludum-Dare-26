@@ -45,10 +45,14 @@
   (when (sdl:get-key-state :sdl-key-left)
      (setf (first player) (- (first player) 6)))
   (when (sdl:get-key-state :sdl-key-space)
-     (setq bullets (append bullets (list (list (first player) (second player) 8 16)))))
+     (setq bullets (append 
+                     bullets
+                     (list (list (+ 12 (first player)) (second player) 8 16)))))
     
-  (map #'(lambda (i)
-           (setf (nth 1 i) (+ (nth 1 i) 8)))
+  (map 'list #'(lambda (i)
+           (if (or (<= (second i) (- 16)) (>= (second i) 640))
+             (setq bullets (remove i bullets))
+             (setf (second i) (- (second i) 8))))
        bullets)
   
   ;rendering
@@ -67,6 +71,8 @@
   (gl:flush)
   (sdl:update-display)
   (sleep (/ 60 10000)))
+
+(setq enemies (append enemies (list '(100 100 32 32))))
 
 (defun main ()
   (sdl:with-init ()
